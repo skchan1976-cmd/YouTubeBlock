@@ -110,6 +110,37 @@
             }
         ];
 
+        const DisqusComments = ({ videoId, videoTitle }) => {
+            useEffect(() => {
+                const config = function () {
+                    this.page.url = window.location.href.split('#')[0] + '#!/' + videoId;
+                    this.page.identifier = videoId;
+                    this.page.title = videoTitle;
+                };
+
+                if (window.DISQUS) {
+                    window.DISQUS.reset({
+                        reload: true,
+                        config: config
+                    });
+                } else {
+                    window.disqus_config = config;
+                    const d = document;
+                    const s = d.createElement('script');
+                    s.src = 'https://youtubeblock.disqus.com/embed.js';
+                    s.setAttribute('data-timestamp', +new Date());
+                    (d.head || d.body).appendChild(s);
+                }
+            }, [videoId, videoTitle]);
+
+            return (
+                <div className="mt-10 pt-10 border-t border-zinc-200">
+                    <div id="disqus_thread"></div>
+                    <noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+                </div>
+            );
+        };
+
         function App() {
             const [currentVideo, setCurrentVideo] = useState(INITIAL_VIDEOS[0]);
             const [isPlaying, setIsPlaying] = useState(true);
@@ -336,6 +367,8 @@
                                     <p className="font-bold text-sm mb-1">{currentVideo.views} views • {currentVideo.time}</p>
                                     <p className="text-sm leading-relaxed">{currentVideo.description}</p>
                                 </div>
+
+                                <DisqusComments videoId={currentVideo.id} videoTitle={currentVideo.title} />
                             </div>
                         </div>
 
