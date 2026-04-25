@@ -110,21 +110,31 @@
             const [searchQuery, setSearchQuery] = useState('');
             const [isSidebarOpen, setIsSidebarOpen] = useState(false);
             const [blockedChannels, setBlockedChannels] = useState(new Set());
-            const [showBlockedList, setShowBlockedList] = useState(false);
-            const [isSubscribed, setIsSubscribed] = useState(false);
+            const [watchLater, setWatchLater] = useState(new Set());
+            const [subscribedChannels, setSubscribedChannels] = useState(new Set());
+            const [currentView, setCurrentView] = useState('home'); // 'home', 'blocked', 'watch-later', 'subscriptions'
             const [userVote, setUserVote] = useState(null);
-            const [isSaved, setIsSaved] = useState(false);
 
             const isCurrentChannelBlocked = blockedChannels.has(currentVideo.channel);
+            const isSubscribedToCurrent = subscribedChannels.has(currentVideo.channel);
+            const isCurrentInWatchLater = watchLater.has(currentVideo.id);
 
             const filteredVideos = useMemo(() => {
-                return INITIAL_VIDEOS.filter(v => 
+                let baseVideos = INITIAL_VIDEOS;
+                
+                if (currentView === 'subscriptions') {
+                    baseVideos = INITIAL_VIDEOS.filter(v => subscribedChannels.has(v.channel));
+                } else if (currentView === 'watch-later') {
+                    baseVideos = INITIAL_VIDEOS.filter(v => watchLater.has(v.id));
+                }
+
+                return baseVideos.filter(v => 
                     v.id !== currentVideo.id && 
                     !blockedChannels.has(v.channel) &&
                     (v.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                      v.channel.toLowerCase().includes(searchQuery.toLowerCase()))
                 );
-            }, [currentVideo.id, searchQuery, blockedChannels]);
+            }, [currentVideo.id, searchQuery, blockedChannels, watchLater, subscribedChannels, currentView]);
 
             const toggleBlock = () => {
                 const channel = currentVideo.channel;
@@ -139,11 +149,28 @@
                 });
             };
 
+            const toggleWatchLater = (id) => {
+                setWatchLater(prev => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                    return next;
+                });
+            };
+
+            const toggleSubscribe = (channel) => {
+                setSubscribedChannels(prev => {
+                    const next = new Set(prev);
+                    if (next.has(channel)) next.delete(channel);
+                    else next.add(channel);
+                    return next;
+                });
+            };
+
             const handleVideoSelect = (video) => {
                 setCurrentVideo(video);
-                setIsSubscribed(false);
                 setUserVote(null);
-                setIsSaved(false);
+                setCurrentView('home');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             };
 
@@ -192,14 +219,27 @@
                                     <span className="font-bold text-xl">YouTube</span>
                                 </div>
                                 <button 
-                                    onClick={() => { setShowBlockedList(false); setIsSidebarOpen(false); }}
-                                    className={`flex items-center gap-4 p-3 rounded-xl ${!showBlockedList ? 'bg-zinc-100 text-red-600' : 'hover:bg-zinc-50'}`}
+                                    onClick={() => { setCurrentView('home'); setIsSidebarOpen(false); }}
+                                    className={`flex items-center gap-4 p-3 rounded-xl ${currentView === 'home' ? 'bg-zinc-100 text-red-600' : 'hover:bg-zinc-50'}`}
                                 >
                                     <Icon name="home" /> <span className="font-semibold text-sm">Home</span>
                                 </button>
                                 <button 
-                                    onClick={() => { setShowBlockedList(true); setIsSidebarOpen(false); }}
-                                    className={`flex items-center gap-4 p-3 rounded-xl ${showBlockedList ? 'bg-zinc-100 text-red-600' : 'hover:bg-zinc-50'}`}
+                                    onClick={() => { setCurrentView('subscriptions'); setIsSidebarOpen(false); }}
+                                    className={`flex items-center gap-4 p-3 rounded-xl ${currentView === 'subscriptions' ? 'bg-zinc-100 text-red-600' : 'hover:bg-zinc-50'}`}
+                                >
+                                    <Icon name="play-square" /> <span className="font-semibold text-sm">Subscriptions</span>
+                                </button>
+                                <div className="h-[1px] bg-zinc-100 my-2"></div>
+                                <button 
+                                    onClick={() => { setCurrentView('watch-later'); setIsSidebarOpen(false); }}
+                                    className={`flex items-center gap-4 p-3 rounded-xl ${currentView === 'watch-later' ? 'bg-zinc-100 text-red-600' : 'hover:bg-zinc-50'}`}
+                                >
+                                    <Icon name="clock" /> <span className="font-semibold text-sm">Watch Later</span>
+                                </button>
+                                <button 
+                                    onClick={() => { setCurrentView('blocked'); setIsSidebarOpen(false); }}
+                                    className={`flex items-center gap-4 p-3 rounded-xl ${currentView === 'blocked' ? 'bg-zinc-100 text-red-600' : 'hover:bg-zinc-50'}`}
                                 >
                                     <Icon name="ban" /> <span className="font-semibold text-sm">Blocked Channels</span>
                                 </button>
@@ -243,10 +283,10 @@
                                             <p className="text-xs text-zinc-500">{currentVideo.subscribers} subscribers</p>
                                         </div>
                                         <button 
-                                            onClick={() => setIsSubscribed(!isSubscribed)}
-                                            className={`ml-4 px-4 py-2 rounded-full text-sm font-bold ${isSubscribed ? 'bg-zinc-100' : 'bg-black text-white'}`}
+                                            onClick={() => toggleSubscribe(currentVideo.channel)}
+                                            className={`ml-4 px-4 py-2 rounded-full text-sm font-bold ${isSubscribedToCurrent ? 'bg-zinc-100' : 'bg-black text-white'}`}
                                         >
-                                            {isSubscribed ? 'Subscribed' : 'Subscribe'}
+                                            {isSubscribedToCurrent ? 'Subscribed' : 'Subscribe'}
                                         </button>
                                         <button 
                                             onClick={toggleBlock}
@@ -273,6 +313,12 @@
                                                 <Icon name="thumbs-down" className="w-5 h-5" fill={userVote === 'down' ? 'currentColor' : 'none'} />
                                             </button>
                                         </div>
+                                        <button 
+                                            onClick={() => toggleWatchLater(currentVideo.id)}
+                                            className={`bg-zinc-100 hover:bg-zinc-200 px-4 h-9 rounded-full flex items-center gap-2 text-sm font-bold ${isCurrentInWatchLater ? 'text-red-600' : ''}`}
+                                        >
+                                            <Icon name="clock" className="w-5 h-5" fill={isCurrentInWatchLater ? 'currentColor' : 'none'} /> {isCurrentInWatchLater ? 'Saved' : 'Later'}
+                                        </button>
                                         <button className="bg-zinc-100 hover:bg-zinc-200 px-4 h-9 rounded-full flex items-center gap-2 text-sm font-bold">
                                             <Icon name="share-2" className="w-5 h-5" /> Share
                                         </button>
@@ -286,9 +332,9 @@
                             </div>
                         </div>
 
-                        {/* Recommendation / Blocked Side */}
+                        {/* Recommendation / List Side */}
                         <div className="lg:w-[400px]">
-                            {showBlockedList ? (
+                            {currentView === 'blocked' ? (
                                 <div className="bg-white rounded-2xl p-6 border border-zinc-200">
                                     <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Icon name="ban" className="text-red-600" /> Blocked</h2>
                                     {blockedChannels.size === 0 ? (
@@ -304,21 +350,76 @@
                                         </div>
                                     )}
                                 </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    {filteredVideos.map(video => (
-                                        <div key={video.id} onClick={() => handleVideoSelect(video)} className="flex gap-3 cursor-pointer group">
-                                            <div className="w-40 h-24 rounded-xl overflow-hidden flex-shrink-0 relative">
-                                                <img src={video.thumbnail} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
-                                                <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] font-bold px-1 rounded">{video.duration}</span>
+                            ) : currentView === 'subscriptions' ? (
+                                <div className="bg-white rounded-2xl p-6 border border-zinc-200">
+                                    <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Icon name="play-square" className="text-red-600" /> Subscriptions</h2>
+                                    {subscribedChannels.size === 0 ? (
+                                        <p className="text-zinc-500 text-sm">You haven't subscribed to any channels yet.</p>
+                                    ) : (
+                                        <div className="space-y-6">
+                                            <div>
+                                                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">Channels</h3>
+                                                <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                                                    {Array.from(subscribedChannels).map(ch => (
+                                                        <div key={ch} className="flex flex-col items-center gap-1 flex-shrink-0">
+                                                            <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center border-2 border-red-600 p-0.5">
+                                                                <div className="w-full h-full rounded-full bg-zinc-200 overflow-hidden">
+                                                                    <img src={`https://ui-avatars.com/api/?name=${ch}&background=random`} alt="" />
+                                                                </div>
+                                                            </div>
+                                                            <span className="text-[10px] font-bold truncate w-16 text-center">{ch}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                            <div className="flex-1">
-                                                <h3 className="text-sm font-bold line-clamp-2 leading-tight group-hover:text-red-600 transition-colors">{video.title}</h3>
-                                                <p className="text-xs text-zinc-500 mt-1">{video.channel}</p>
-                                                <p className="text-xs text-zinc-500">{video.views} views</p>
+                                            <div>
+                                                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">Videos from subscriptions</h3>
+                                                <div className="space-y-4">
+                                                    {filteredVideos.map(video => (
+                                                        <div key={video.id} onClick={() => handleVideoSelect(video)} className="flex gap-3 cursor-pointer group">
+                                                            <div className="w-32 h-20 rounded-xl overflow-hidden flex-shrink-0 relative">
+                                                                <img src={video.thumbnail} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <h3 className="text-xs font-bold line-clamp-2 leading-tight group-hover:text-red-600 transition-colors">{video.title}</h3>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
-                                    ))}
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h2 className="font-bold text-sm">
+                                            {currentView === 'watch-later' ? 'Watch Later' : 'Up Next'}
+                                        </h2>
+                                        {currentView === 'home' && (
+                                            <div className="flex gap-2">
+                                                <div className="text-[10px] font-bold px-2 py-0.5 bg-zinc-100 rounded-full">All</div>
+                                                <div className="text-[10px] font-bold px-2 py-0.5 hover:bg-zinc-100 rounded-full cursor-pointer">Live</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {filteredVideos.length === 0 ? (
+                                        <p className="text-zinc-500 text-sm text-center py-10">No videos found.</p>
+                                    ) : (
+                                        filteredVideos.map(video => (
+                                            <div key={video.id} onClick={() => handleVideoSelect(video)} className="flex gap-3 cursor-pointer group">
+                                                <div className="w-40 h-24 rounded-xl overflow-hidden flex-shrink-0 relative">
+                                                    <img src={video.thumbnail} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="" />
+                                                    <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] font-bold px-1 rounded">{video.duration}</span>
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h3 className="text-sm font-bold line-clamp-2 leading-tight group-hover:text-red-600 transition-colors">{video.title}</h3>
+                                                    <p className="text-xs text-zinc-500 mt-1">{video.channel}</p>
+                                                    <p className="text-xs text-zinc-500">{video.views} views</p>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
                                 </div>
                             )}
                         </div>
