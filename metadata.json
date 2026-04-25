@@ -1,0 +1,6 @@
+{
+  "name": "YouTube",
+  "description": "A modern, responsive video streaming interface with integrated controls and recommendation systems.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
